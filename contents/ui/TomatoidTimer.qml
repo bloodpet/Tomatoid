@@ -1,5 +1,5 @@
 /*
- *   Copyright 2012 Arthur Taborda <arthur.hvt@gmail.com>
+ *   Copyright 2013 Arthur Taborda <arthur.hvt@gmail.com>
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU Library General Public License as
@@ -17,44 +17,38 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-import QtQuick 1.0
-import org.kde.plasma.core 0.1 as PlasmaCore
-import org.kde.plasma.components 0.1 as PlasmaComponents
-import org.kde.qtextracomponents 0.1 as QtExtras
+import QtQuick 1.1
 
-import "plasmapackage:/code/logic.js" as Logic
+Item {
+	property alias running: timer.running
 
-Item {    
-    property alias running: timer.running
-    
-    property int seconds // variable
-    property int totalSeconds //constant
-    
-    property int taskId
-    property string taskName
-    
-    signal timeout()
-    
-    
-    onTotalSecondsChanged: {
-        seconds = totalSeconds;
-    }
-    
-    
-    Timer {
-        id: timer
-        interval: 1000
-        running: false
-        repeat: true
-        
-        onTriggered: {
-            console.log(seconds)
-            if(seconds > 1) {
-                seconds -= 1;
-            } else {
-                totalSeconds = 0;
-                timeout()
-            }
-        }
-    }
+	property int seconds // variable
+	property int totalSeconds //constant
+
+	property string taskId
+	property string taskName
+
+	signal tick()
+	signal timeout()
+
+	onTotalSecondsChanged: {
+		seconds = totalSeconds;
+	}
+
+	Timer {
+		id: timer
+		interval: 1000
+		running: false
+		repeat: true
+
+		onTriggered: {
+			if(seconds > 1) {
+				tick()
+				seconds -= 1;
+			} else {
+				totalSeconds = 0;
+				timeout()
+			}
+		}
+	}
 }

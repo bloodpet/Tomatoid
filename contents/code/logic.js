@@ -1,5 +1,5 @@
 /*
- *   Copyright 2012 Arthur Taborda <arthur.hvt@gmail.com>
+ *   Copyright 2013 Arthur Taborda <arthur.hvt@gmail.com>
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU Library General Public License as
@@ -16,199 +16,232 @@
  *   Free Software Foundation, Inc.,
  *   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
+var sep = "~";
+var sep2 = "%";
+var test = false;
+
+// function newTaskDB(taskName) {
+//     var db = openDataBaseSync("tomatoid_db", "1.0")
+//     db.transaction(
+//         function(tx) {
+//             tx.executeSql('CREATE TABLE IF NOT EXISTS tasks(task_name TEXT, complete_pomo INT, estimate_pomo INT)');
+//             tx.executeSql('INSERT INTO tasks VALUES(?, ?, ?)', [ taskName, 0, 0 ]);
+//         }
+//     )
+// }
 
 function parseConfig(configName, model) {
-    var tasksSourcesString = plasmoid.readConfig(configName).toString();
-    var tasks = new Array();
-    if (tasksSourcesString.length > 0)
-        tasks = tasksSourcesString.split("|");
-    
-    
-    for(var i = 0; i < tasks.length; i++) {
-        var task = tasks[i].split(",");
-        model.append({"taskId":parseInt(task[0]),"name":task[1],"pomodoros":parseInt(task[2])});
-    }
+	var tasksSourcesString = plasmoid.readConfig(configName).toString();
+	var tasks = new Array();
+	if (tasksSourcesString.length > 0)
+		tasks = tasksSourcesString.split(sep2);
+
+	for(var i = 0; i < tasks.length; i++) {
+		var task = tasks[i].split(sep);
+		model.append({"taskId":task[0], "taskName":task[1], "donePomos":parseInt(task[2]), "estimatedPomos":parseInt(task[3])});
+	}
 }
 
-
-function newTask(taskName) {
-    addTask(taskName, 0, incompleteTasks, "incompleteTasks");
+function newTask(taskName, estimatedPomos) {
+	addTask(taskName, 0, estimatedPomos, incompleteTasks, "incompleteTasks");
 }
 
-
-function insertIncompleteTask(taskName, pomodoros) {
-    addTask(taskName, pomodoros, incompleteTasks, "incompleteTasks");
+function insertIncompleteTask(taskName, donePomos, estimatedPomos) {
+	addTask(taskName, donePomos, estimatedPomos, incompleteTasks, "incompleteTasks");
 }
-
-
-function insertCompleteTask(taskName, pomodoros) {
-    addTask(taskName, pomodoros, completeTasks, "completeTasks");
+function insertCompleteTask(taskName, donePomos, estimatedPomos) {
+	addTask(taskName, donePomos, estimatedPomos, completeTasks, "completeTasks");
 }
-
-
-function addTask(taskName, pomodoros, model, configName) {
-    var tasks = "";
-    
-    for(var i = 0; i < model.count; i++) {
-        tasks += model.get(i).taskId + "," + model.get(i).name + "," + model.get(i).pomodoros + "|"
-    }
-    
-    var id = 0;
-    
-    if(model.count > 0) {
-        var id = parseInt(model.get(model.count-1).taskId) + 1
-    }
-    
-    
-    tasks += id + "," + taskName + "," + pomodoros
-    
-    
-    console.log(tasks);    
-    plasmoid.writeConfig(configName, tasks);
-    model.append({"taskId":id,"name":taskName,"pomodoros":pomodoros});
-}
-
 
 function removeIncompleteTask(id) {
-    return removeTask(id, incompleteTasks, "incompleteTasks");
+	return removeTask(id, incompleteTasks, "incompleteTasks");
 }
-
-
 function removeCompleteTask(id) {
-    return removeTask(id, completeTasks, "completeTasks");
+	return removeTask(id, completeTasks, "completeTasks");
 }
 
+
+function addTask(taskName, donePomos, estimatedPomos, model, configName) {
+	var id = randomString(10);
+	var tasks = "";
+
+	if(model.count > 0) {
+		for(var i = 0; i < model.count; i++) {
+			tasks += model.get(i).taskId + sep + model.get(i).taskName + sep +
+			model.get(i).donePomos + sep + model.get(i).estimatedPomos + sep2
+		}
+	}
+
+	//make sure no one is going to fuck with the kcfg separation.
+	taskName = taskName.replace(new RegExp(sep,"gm"), "");
+	taskName = taskName.replace(new RegExp(sep2,"gm"), "");
+
+	tasks += id + sep + taskName + sep + donePomos + sep + estimatedPomos
+
+	console.log(tasks);
+	plasmoid.writeConfig(configName, tasks);
+	model.append({"taskId":id, "taskName":taskName, "donePomos":donePomos, "estimatedPomos":estimatedPomos});
+}
 
 function removeTask(id, model, configName) {
-    var removedTask = "";
-    var tasks = "";
-    var index = 0;
-    
-    for(var i = 0; i < model.count; i++) {
-        if(id != model.get(i).taskId) {
-            if(tasks != "") {
-                tasks += "|";
-            }
-            tasks += model.get(i).taskId + "," + model.get(i).name + "," + model.get(i).pomodoros;
-            
-        } else {
-            removedTask = model.get(i).name + "," + model.get(i).pomodoros;
-            index = i;
-        }
-    }
-    
-    console.log(tasks);
-    plasmoid.writeConfig(configName, tasks);
-    model.remove(index);
-    
-    return removedTask; //return taskName,pomodoros
+	var removedTask = "";
+	var tasks = "";
+	var index = 0;
+
+	console.log(id);
+
+	for(var i = 0; i < model.count; i++) {
+		var task = model.get(i);
+		if(id != task.taskId) {
+			if(tasks != "") tasks += sep2;
+
+			tasks += task.taskId + sep + task.taskName + sep + task.donePomos + sep + task.estimatedPomos;
+		} else {
+			removedTask = task.taskName + sep + task.donePomos + sep + task.estimatedPomos;
+			index = i;
+		}
+	}
+
+	console.log(tasks);
+	console.log(removedTask);
+	plasmoid.writeConfig(configName, tasks);
+	model.remove(index);
+
+	return removedTask;
+}
+
+
+function renameTask(id, taskName) {
+	var index = 0
+	var tasks = "";
+	var model = incompleteTasks;
+
+	for(var i = 0; i < model.count; i++) {
+		var task = model.get(i);
+		if(tasks != "") tasks += sep2;
+
+		tasks += task.taskId + sep;
+
+		if(id == task.taskId) {
+			index = i;
+			tasks += taskName; //if id matches, insert changed name
+		} else {
+			tasks += task.taskName;
+		}
+
+		tasks += sep + task.donePomos + sep + task.estimatedPomos;
+	}
+
+	console.log(id + ": " + tasks);
+	plasmoid.writeConfig("incompleteTasks", tasks);
+	model.setProperty(index, "taskName", taskName);
 }
 
 
 function doTask(id) {
-    var removedTask = removeIncompleteTask(id);
-    var split = removedTask.split(",");
-    
-    console.log(removedTask);
-    console.log(split);
-    
-    insertCompleteTask(split[0], split[1]);
+	var removedTask = removeIncompleteTask(id);
+	var split = removedTask.split(sep);
+
+	console.log(split);
+
+	insertCompleteTask(split[0], split[1], split[2]);
 }
 
 
-function undoTask(id) {    
-    var removedTask = removeCompleteTask(id);
-    var split = removedTask.split(",");
-    
-    console.log(removedTask);
-    console.log(split);
-    
-    insertIncompleteTask(split[0], split[1]);    
+function undoTask(id) {
+	var removedTask = removeCompleteTask(id);
+	var split = removedTask.split(sep);
+
+	console.log(split);
+
+	insertIncompleteTask(split[0], split[1], split[2]);
 }
 
 
-
-function startTask(id, name) {
-    //plasmoid.popupIcon = QIcon("yakuake");
-    
-    console.log(plasmoid.popupIcon)
-    timer.taskId = id;
-    timer.taskName = name;
-    timer.totalSeconds = pomodoroLenght * 60;
-    timer.running = true;
-    inPomodoro = true;
-    inBreak = false;
+function startTask(id, taskName) {
+	console.log(plasmoid.popupIcon)
+	timer.taskId = id;
+	timer.taskName = taskName;
+	timer.totalSeconds = test ? 5 : pomodoroLenght * 60;
+	timer.running = true;
+	inPomodoro = true;
+	inBreak = false;
 }
-
 
 
 function startBreak() {
-    //plasmoid.popupIcon = "konsole";
-    
-    console.log(plasmoid.popupIcon)
-    
-    if(completedPomodoros % pomodorosPerLongBreak == 0) {
-        timer.totalSeconds = longBreakLenght * 60;
-    } else {
-        timer.totalSeconds = shortBreakLenght * 60;
-    }
-    timer.running = true;
-    inPomodoro = false;
-    inBreak = true;
+	console.log(plasmoid.popupIcon)
+
+	if(completedPomodoros % pomodorosPerLongBreak == 0) {
+		timer.totalSeconds = test ? 10 : longBreakLenght * 60;
+	} else {
+		timer.totalSeconds = test ? 7 : shortBreakLenght * 60;
+	}
+	timer.running = true;
+	inPomodoro = false;
+	inBreak = true;
 }
 
 
 function stop() {
-    //plasmoid.popupIcon = QIcon("ktip");
-    
-    console.log(plasmoid.popupIcon)
-    
-    timer.running = false;
-    inPomodoro = false;
-    inBreak = false;
-    timer.totalSeconds = 0;
+	console.log(plasmoid.popupIcon)
+
+	timer.running = false;
+	inPomodoro = false;
+	inBreak = false;
+	timer.totalSeconds = 0;
 }
 
 
 function completePomodoro(taskId) {
-    console.log(taskId)
-    
-    var tasks = "";
-    var index = 0;
-    
-    for(var i = 0; i < incompleteTasks.count; i++) {
-        
-        var pomodoros = incompleteTasks.get(i).pomodoros
-        if(taskId == incompleteTasks.get(i).taskId) {
-            pomodoros += 1;
-            index = i;
-        }
-        
-        tasks += incompleteTasks.get(i).taskId + "," + incompleteTasks.get(i).name + "," + pomodoros;
-        if(i < incompleteTasks.get(i) + 1) {
-            tasks += "|";
-        }
-    }
-    
-    completedPomodoros += 1
-    plasmoid.writeConfig("incompleteTasks", tasks);
-    incompleteTasks.setProperty(index, "pomodoros", incompleteTasks.get(index).pomodoros + 1)
+	var tasks = "";
+	var index = 0;
+
+	for(var i = 0; i < incompleteTasks.count; i++) {
+		var task = incompleteTasks.get(i);
+		var donePomos = task.donePomos;
+
+		if(tasks != "") tasks += sep2;
+
+		if(taskId == task.taskId) {
+			donePomos += 1;
+			index = i;
+		}
+
+		tasks += task.taskId + sep +
+		task.taskName + sep + donePomos + sep + task.estimatedPomos;
+	}
+
+	completedPomodoros += 1
+
+	console.log(tasks);
+	plasmoid.writeConfig("incompleteTasks", tasks);
+	incompleteTasks.setProperty(index, "donePomos", incompleteTasks.get(index).donePomos + 1)
 }
 
 
-
-
 function notify(summary, body) {
-    var engine = dataEngine("notifications");
-    var service = engine.serviceForSource("notification");
-    var op = service.operationDescription("createNotification");
-    op["appName"] = tomatoid.appName;
-    op["appIcon"] = "chronometer"
-    op["summary"] = summary;
-    op["body"] = body;
-    op["timeout"] = 7000;
-    
-    service.startOperationCall(op);
-    
-    console.log(op)
+	var engine = dataEngine("notifications");
+	var service = engine.serviceForSource("notification");
+	var op = service.operationDescription("createNotification");
+	op["appName"] = tomatoid.appName;
+	op["appIcon"] = "chronometer"
+	op["summary"] = summary;
+	op["body"] = body;
+	op["timeout"] = 7000;
+
+	service.startOperationCall(op);
+
+	console.log(op)
+}
+
+
+function randomString(len) {
+	var charSet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+	var randomString = "";
+	for (var i = 0; i < len; i++) {
+		var randomPoz = Math.floor(Math.random() * charSet.length);
+		randomString += charSet.substring(randomPoz,randomPoz+1);
+	}
+	return randomString;
 }

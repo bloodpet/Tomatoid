@@ -1,5 +1,5 @@
 /*
- *   Copyright 2012 Arthur Taborda <arthur.hvt@gmail.com>
+ *   Copyright 2013 Arthur Taborda <arthur.hvt@gmail.com>
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU Library General Public License as
@@ -17,97 +17,148 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-import QtQuick 1.1
-import org.kde.plasma.components 0.1 as PlasmaComponents
-import org.kde.plasma.core 0.1 as PlasmaCore
+ import QtQuick 1.1
+ import org.kde.plasma.core 0.1 as PlasmaCore
+ import org.kde.plasma.components 0.1 as PlasmaComponents
 
-Item {
-    id: taskItem
-    
-    property bool done
-    property int pomos
-    property int identity
-    property string taskName
-    
-    property string startIconImage: "chronometer"
-    property string removeIconImage: "edit-delete"
-    
-    property int iconSize: 22
-    property int margin: 8
-    
-    signal entered(int index)
-    signal taskDone()
-    signal removed()
-    signal started()
-    signal exited()
-    
-    height: 32
-    anchors.leftMargin: margin
-    anchors.rightMargin: margin
-    
-    MouseArea {
-        anchors.fill: parent
-        hoverEnabled: true
-        onEntered: {
-            taskItem.entered(index)
-        }
-        
-        onExited: {
-            taskItem.exited(index)
-        }
-        
-        
-        Item {
-            id: row
-            width: parent.width
-            height: parent.height
-            
-            PlasmaComponents.CheckBox {
-                id: checkBox
-                checked: done
-                enabled: !tomatoid.timerRunning
-                anchors.left: parent.left
-                anchors.verticalCenter: parent.verticalCenter
-                
-                onClicked: taskDone()            
-            }
-            
-            
-            PlasmaComponents.Label {            
-                text: "( " + pomos + " ) " + taskName
-                anchors.left: checkBox.right
-                anchors.leftMargin: 4
-                anchors.verticalCenter: parent.verticalCenter
-            }
-            
-            
-            Row {
-                id: toolBar
-                spacing: 5
-                visible: !tomatoid.timerRunning
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-                
-                PlasmaComponents.ToolButton {
-                    id: removeButton
-                    iconSource: removeIconImage
-                    width: iconSize
-                    height: iconSize
-                    
-                    onClicked: removed()
-                }
-                
-                PlasmaComponents.Button {
-                    id: startButton
-                    visible: !done
-                    text: "Start"
-                    iconSource: startIconImage
-                    width: 58
-                    height: iconSize
-                    
-                    onClicked: started()
-                }
-            }
-        }        
-    }    
+ Item {
+	id: taskItem
+
+	property bool done
+	property int donePomodoros
+	property int estimatedPomodoros
+	property string identity
+	property string name
+	property bool editMode
+
+	property string startIconImage: "media-playback-start"
+	property string removeIconImage: "window-close"
+	property string completeIconImage: "media-record"
+	property string undoIconImage: "media-seek-backward"
+
+	property int iconSize: 22
+	property int margin: 8
+
+	property bool timerRunning: tomatoid.timerRunning
+
+	onTimerRunningChanged: {
+		if(timerRunning) editMode = false
+	}
+
+	signal rename(string name)
+	signal entered(int index)
+	signal taskDone()
+	signal removed()
+	signal started()
+	signal exited()
+
+	height: 32
+	anchors.leftMargin: margin
+	anchors.rightMargin: margin
+
+	anchors.left: parent.left
+	anchors.right: parent.right
+
+
+	PlasmaCore.Theme { id: theme }
+
+	MouseArea {
+		id:mouseArea
+		anchors.fill: parent
+		hoverEnabled: true
+		onEntered: {
+			taskItem.entered(index)
+		}
+
+		onExited: {
+			taskItem.exited(index)
+		}
+
+		onDoubleClicked: {
+			if(!timerRunning && !done)
+				editMode = !editMode
+		}
+
+
+		Item {
+			id: row
+			width: parent.width
+			height: parent.height
+
+			Text {
+				text: {
+					t = "( " + donePomodoros
+					if(estimatedPomodoros > 0)
+						t += "/" + estimatedPomodoros
+					t += " ) " + name
+					return t
+				}
+				anchors.left: parent.left
+				anchors.right: toolBar.left
+				anchors.leftMargin: 4
+				anchors.verticalCenter: parent.verticalCenter
+				visible: !editMode
+				color: theme.textColor
+			}
+
+			PlasmaComponents.TextField {
+				id: nameEdit
+				text: name
+				visible: editMode
+				anchors.left: parent.left
+				anchors.right: toolBar.left
+				anchors.leftMargin: 4
+				anchors.rightMargin: 8
+				anchors.verticalCenter: parent.verticalCenter
+
+				Keys.onReturnPressed: {
+					if(nameEdit.text != "")
+						name = nameEdit.text
+					editMode = false
+					rename(name)
+				}
+			}
+
+			Row {
+				id: toolBar
+				spacing: 5
+				visible: !tomatoid.timerRunning
+				anchors.right: parent.right
+				anchors.verticalCenter: parent.verticalCenter
+
+				PlasmaComponents.Button {
+					id: completeButton
+					iconSource: {
+						if(!done) return completeIconImage
+						else return undoIconImage
+					}
+					width: iconSize
+					height: iconSize
+					enabled: !tomatoid.timerRunning
+					opacity: mouseArea.containsMouse * 1
+
+					onClicked: taskDone()
+				}
+
+				PlasmaComponents.Button {
+					id: removeButton
+					iconSource: removeIconImage
+					width: iconSize
+					height: iconSize
+					opacity: mouseArea.containsMouse * 1
+
+					onClicked: removed()
+				}
+
+				PlasmaComponents.Button {
+					id: startButton
+					visible: !done
+					iconSource: startIconImage
+					height: iconSize
+
+					onClicked: started()
+				}
+			}
+		}
+	}
 }
